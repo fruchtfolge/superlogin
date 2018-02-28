@@ -20,7 +20,12 @@ module.exports = {
     sendConfirmEmail: true
   },
   session: {
-    adapter: 'redis'
+    adapter: 'redis',
+    redis: {
+      //url: process.env.REDIS_URL,
+      host: process.env.REDIS_HOST,
+      password: process.env.REDIS_PASSWORD
+    }
   },
   mailer: {
     fromEmail: 'me@example.com'

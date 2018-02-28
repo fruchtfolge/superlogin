@@ -1,5 +1,10 @@
 ## Change Log
 
+#### Fork 2018-02-28 PhilLaFayette
+* Updated Dependencies
+* Added test-env.sh, with support for arbitrary REDIS_HOST and REDIS_PASSWORD
+* Fixed Design Doc format for pouchdb-seed-design@0.3.0
+
 #### Misc. Bug Fixes (0.6.1) 2016-04-02
 * Misc bugfixes
 * Documentation improvements

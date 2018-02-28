@@ -36,6 +36,8 @@ describe('Session', function() {
     })
     .finally(function() {
       config.setItem('session.adapter', 'redis');
+      config.setItem('session.redis.host', process.env.REDIS_HOST || '127.0.0.1');
+      config.setItem('session.redis.password', process.env.REDIS_PASSWORD || null);
       return runTest(config, 'Redis adapter');
     })
     .finally(function() {
