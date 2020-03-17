@@ -3,9 +3,9 @@ module.exports = {
     views: {
       email: {
         map: function(doc) {
-          if(doc.email) {
+          if (doc.email) {
             emit(doc.email, null);
-          } else if(doc.unverifiedEmail.email) {
+          } else if (doc.unverifiedEmail.email) {
             emit(doc.unverifiedEmail.email, null);
           }
         }
@@ -17,7 +17,7 @@ module.exports = {
       },
       verifyEmail: {
         map: function(doc) {
-          if(doc.unverifiedEmail && doc.unverifiedEmail.token) {
+          if (doc.unverifiedEmail && doc.unverifiedEmail.token) {
             emit(doc.unverifiedEmail.token, null);
           }
         }
@@ -25,25 +25,25 @@ module.exports = {
       emailUsername: {
         map: function(doc) {
           emit(doc._id, null);
-          if(doc.email) {
+          if (doc.email) {
             emit(doc.email, null);
-          } else if(doc.unverifiedEmail.email) {
+          } else if (doc.unverifiedEmail.email) {
             emit(doc.unverifiedEmail.email, null);
           }
         }
       },
       passwordReset: {
         map: function(doc) {
-          if(doc.forgotPassword && doc.forgotPassword.token) {
+          if (doc.forgotPassword && doc.forgotPassword.token) {
             emit(doc.forgotPassword.token, null);
           }
         }
       },
       session: {
         map: function(doc) {
-          if(doc.session) {
-            for(var key in doc.session) {
-              if(doc.session.hasOwnProperty(key)) {
+          if (doc.session) {
+            for (var key in doc.session) {
+              if (doc.session.hasOwnProperty(key)) {
                 emit(key, doc._id);
               }
             }
@@ -52,10 +52,10 @@ module.exports = {
       },
       expiredKeys: {
         map: function(doc) {
-          if(doc.session) {
-            for(var key in doc.session) {
-              if(doc.session.hasOwnProperty(key) && doc.session[key].expires) {
-                emit(doc.session[key].expires, {key: key, user: doc._id});
+          if (doc.session) {
+            for (var key in doc.session) {
+              if (doc.session.hasOwnProperty(key) && doc.session[key].expires) {
+                emit(doc.session[key].expires, { key: key, user: doc._id });
               }
             }
           }

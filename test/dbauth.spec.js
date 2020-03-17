@@ -1,5 +1,6 @@
 'use strict';
 var PouchDB = require('pouchdb');
+var securityPlugin = require('pouchdb-security-helper');
 var BPromise = require('bluebird');
 var seed = require('pouchdb-seed-design');
 var request = require('superagent');
@@ -9,6 +10,7 @@ var Configure = require('../lib/configure');
 var util = require('../lib/util.js');
 var config = require('./test.config.js');
 
+PouchDB.plugin(securityPlugin);
 var dbUrl = util.getDBURL(config.dbServer);
 
 var userDB = new PouchDB(dbUrl + "/cane_test_users");
@@ -56,18 +58,21 @@ describe('DBAuth', function() {
       })
       .then(function(result) {
         expect(result).to.equal(true);
-        var destroyDB = new PouchDB(dbUrl + '/' + testDBName);
-        return destroyDB.destroy();
+         var destroyDB = new PouchDB(dbUrl + '/' + testDBName);
+         return destroyDB.destroy();
       });
   });
 
   it('should generate a database access key', function() {
-    previous = BPromise.resolve();
+    previous = Promise.resolve();
     return previous
       .then(function() {
         return seed(userDB, userDesign);
       })
-      .then(function() {
+      .then(() => {
+        return userDB.get('_design/auth');
+      })
+      .then(() => {
         return dbAuth.storeKey(testUser._id, 'testkey', 'testpass', Date.now() + 60000, testUser.roles);
       })
       .then(function(newKey){
@@ -152,14 +157,16 @@ describe('DBAuth', function() {
       .then(function(finalDBName) {
         expect(finalDBName).to.equal('test_personal$test(2e)user(2d)31(40)cool(2e)com');
         newDB = new PouchDB(dbUrl + '/' + finalDBName);
+        // console.log('DB created, retrieving security doc.');
         return newDB.get('_security');
       }).then(function(secDoc) {
-        expect(secDoc.admins.roles[0]).to.equal('admin_role');
-        expect(secDoc.members.roles[0]).to.equal('member_role');
+        expect(secDoc.admins.roles[secDoc.admins.roles.length - 1]).to.equal('admin_role');
+        expect(secDoc.members.roles[secDoc.admins.roles.length - 1]).to.equal('member_role');
         expect(secDoc.members.names[1]).to.equal('key2');
         return newDB.get('_design/test');
       })
       .then(function(design){
+        // console.log('Got design: ', JSON.stringify(design));
         expect(design.views.mytest.map).to.be.a('string');
         return newDB.destroy();
       });
@@ -205,14 +212,14 @@ describe('DBAuth', function() {
         promises.push(dbAuth.storeKey('testuser1', 'goodkey1', 'password', user1.session.goodkey1.expires));
         promises.push(dbAuth.storeKey('testuser2', 'oldkey2', 'password', user2.session.oldkey2.expires));
         promises.push(dbAuth.storeKey('testuser2', 'goodkey2', 'password', user2.session.goodkey2.expires));
-        return BPromise.all(promises);
+        return Promise.all(promises);
       })
       .then(function() {
         // Now we will expire the keys
         var promises = [];
         promises.push(userDB.get('testuser1'));
         promises.push(userDB.get('testuser2'));
-        return BPromise.all(promises);
+        return Promise.all(promises);
       })
       .then(function(docs) {
         docs[0].session.oldkey1.expires = 100;
@@ -234,7 +241,7 @@ describe('DBAuth', function() {
         promises.push(keysDB.get('org.couchdb.user:goodkey2'));
         promises.push(db1.get('_security'));
         promises.push(db2.get('_security'));
-        return BPromise.all(promises);
+        return Promise.all(promises);
       })
       .then(function(docs) {
         // Sessions for old keys should have been deleted, unexpired keys should be there
@@ -262,14 +269,14 @@ describe('DBAuth', function() {
         expect(results[1].isRejected()).to.be.true;
         /* jshint +W030 */
         // Finally clean up
-        return BPromise.all([db1.destroy(), db2.destroy()]);
+        return Promise.all([db1.destroy(), db2.destroy()]);
       });
   });
 
   it('should cleanup databases', function() {
     return previous
       .finally(function() {
-        return BPromise.all([userDB.destroy(), keysDB.destroy(), testDB.destroy()]);
+        return Promise.all([userDB.destroy(), keysDB.destroy(), testDB.destroy()]);
       });
   });
 
@@ -277,18 +284,15 @@ describe('DBAuth', function() {
 
 function checkDBExists(dbname) {
   var finalUrl = dbUrl + '/' + dbname;
-  return BPromise.fromNode(function(callback) {
-    request.get(finalUrl)
-      .end(callback);
-  })
+  return request.get(finalUrl)
     .then(function(res) {
       var result = JSON.parse(res.text);
       if(result.db_name) {
-        return BPromise.resolve(true);
+        return Promise.resolve(true);
       }
     }, function(err) {
       if(err.status === 404) {
-        return BPromise.resolve(false);
+        return Promise.resolve(false);
       }
     });
 }

@@ -2,7 +2,6 @@
 var events = require('events');
 var path = require('path');
 var PouchDB = require('pouchdb');
-var BPromise = require('bluebird');
 var Configure = require('../lib/configure');
 var User = require('../lib/user');
 var Mailer = require('../lib/mailer');
@@ -133,30 +132,31 @@ describe('User Model', function() {
   var verifyEmailToken;
 
   before(function() { // 'should prepare the database'
-    // console.log('Seeding design docs');
+    console.log('Seeding design docs to ' + userDB.name);
     var userDesign = require('../designDocs/user-design');
     userDesign = util.addProvidersToDesignDoc(userConfig, userDesign);
-    previous = BPromise.resolve();
-
+    previous = Promise.resolve();
     return previous.then(function() {
       return seed(userDB, userDesign);
+    })
+    .then(() => {
+      return userDB.get('_design/auth');
     });
   });
 
   after(function() {  // 'should destroy all the test databases'
     return previous.finally(function() {
-      // console.log('Destroying database');
+      console.log('Destroying database');
       var userTestDB1 = new PouchDB(dbUrl + "/test_usertest$superuser");
       var userTestDB2 = new PouchDB(dbUrl + "/test_usertest$misterx");
       var userTestDB3 = new PouchDB(dbUrl + "/test_usertest$misterx3");
       var userTestDB4 = new PouchDB(dbUrl + "/test_superdb");
-      return BPromise.all([userDB.destroy(), keysDB.destroy(), userTestDB1.destroy(), userTestDB2.destroy(), userTestDB3.destroy(), userTestDB4.destroy()]);
+      return Promise.all([userDB.destroy(), keysDB.destroy(), userTestDB1.destroy(), userTestDB2.destroy(), userTestDB3.destroy(), userTestDB4.destroy()]);
     });
   });
 
   it('should save a new user', function() {
-    // console.log('Creating User');
-    var emitterPromise = new BPromise(function(resolve) {
+    var emitterPromise = new Promise(function(resolve) {
       emitter.once('signup', function(user) {
         expect(user._id).to.equal('superuser');
         resolve();
@@ -166,16 +166,16 @@ describe('User Model', function() {
     return previous.then(function() {
       user.onCreate(function(userDoc) {
         userDoc.onCreate1 = true;
-        return BPromise.resolve(userDoc);
+        return Promise.resolve(userDoc);
       });
       user.onCreate(function(userDoc) {
         userDoc.onCreate2 = true;
-        return BPromise.resolve(userDoc);
+        return Promise.resolve(userDoc);
       });
       return user.create(testUserForm, req);
     })
       .then(function() {
-        // console.log('User created');
+        console.log('User created');
         return userDB.get(testUserForm.username);
       })
       .then(function(newUser) {
@@ -196,7 +196,7 @@ describe('User Model', function() {
   });
 
   it('should have created a user db with design doc and _security', function() {
-    // console.log('Checking user db and design doc');
+    console.log('Checking user db and design doc');
     userTestDB = new PouchDB(dbUrl + '/test_usertest$superuser');
     return previous
       .then(function() {
@@ -207,28 +207,28 @@ describe('User Model', function() {
         return userTestDB.get('_security');
       })
       .then(function(secDoc) {
-        expect(secDoc.admins.roles[0]).to.equal('admin_role');
-        expect(secDoc.members.roles[0]).to.equal('member_role');
+        expect(secDoc.admins.roles[secDoc.admins.roles.length - 1]).to.equal('admin_role');
+        expect(secDoc.members.roles[secDoc.members.roles.length - 1]).to.equal('member_role');
       });
   });
 
   it('should authenticate the password', function() {
-    // console.log('Authenticating password');
+    console.log('Authenticating password');
     return previous.then(function() {
-      // console.log('Fetching created user');
+      console.log('Fetching created user');
       return userDB.get(testUserForm.username);
     })
       .then(function(newUser) {
         return util.verifyPassword(newUser.local, 'superlogin');
       })
       .then(function(result) {
-        // console.log('Password authenticated');
+        console.log('Password authenticated');
       });
   });
 
   it('should generate a validation error trying to save the same user again', function() {
     return previous.then(function() {
-      // console.log('Trying to create the user again');
+      console.log('Trying to create the user again');
       return user.create(testUserForm);
     })
       .then(function() {
@@ -247,7 +247,7 @@ describe('User Model', function() {
   var sessionKey, sessionPass, firstExpires;
 
   it('should generate a new session for the user', function() {
-    var emitterPromise = new BPromise(function(resolve) {
+    var emitterPromise = new Promise(function(resolve) {
       emitter.once('login', function(session) {
         expect(session.user_id).to.equal('superuser');
         resolve();
@@ -256,7 +256,7 @@ describe('User Model', function() {
 
     return previous
       .then(function() {
-        // console.log('Creating session');
+        console.log('Creating session');
         return user.createSession(testUserForm.username, 'local', req);
       })
       .then(function(result) {
@@ -278,7 +278,7 @@ describe('User Model', function() {
   it('should have authorized the session in the usertest database', function() {
     return previous
       .then(function() {
-        // console.log('Verifying session is authorized in personal db');
+        console.log('Verifying session is authorized in personal db');
         return userTestDB.get('_security');
       })
       .then(function(secDoc) {
@@ -287,7 +287,7 @@ describe('User Model', function() {
   });
 
   it('should refresh a session', function() {
-    var emitterPromise = new BPromise(function(resolve) {
+    var emitterPromise = new Promise(function(resolve) {
       emitter.once('refresh', function(session) {
         expect(session.user_id).to.equal('superuser');
         resolve();
@@ -296,7 +296,7 @@ describe('User Model', function() {
 
     return previous
       .then(function() {
-        // console.log('Refreshing session');
+        console.log('Refreshing session');
         return user.refreshSession(sessionKey, sessionPass);
       })
       .then(function(result) {
@@ -306,7 +306,7 @@ describe('User Model', function() {
   });
 
   it('should log out of a session', function() {
-    var emitterPromise = new BPromise(function(resolve) {
+    var emitterPromise = new Promise(function(resolve) {
       emitter.once('logout', function(user_id) {
         expect(user_id).to.equal('superuser');
         resolve();
@@ -315,7 +315,7 @@ describe('User Model', function() {
 
     return previous
       .then(function() {
-        // console.log('Logging out of the session');
+        console.log('Logging out of the session');
         return user.logoutSession(sessionKey);
       })
       .then(function() {
@@ -344,7 +344,7 @@ describe('User Model', function() {
   });
 
   it('should log the user out of all sessions', function() {
-    var emitterPromise = new BPromise(function(resolve) {
+    var emitterPromise = new Promise(function(resolve) {
       emitter.once('logout-all', function(user_id) {
         expect(user_id).to.equal('superuser');
         resolve();
@@ -356,7 +356,7 @@ describe('User Model', function() {
 
     return previous
       .then(function() {
-        // console.log('Logging user out completely');
+        console.log('Logging user out completely');
         return user.createSession(testUserForm.username, 'local', req);
       })
       .then(function(session1) {
@@ -370,7 +370,7 @@ describe('User Model', function() {
         return user.logoutUser(null, sessions[0]);
       })
       .then(function() {
-        return BPromise.all([
+        return Promise.all([
           user.confirmSession(sessions[0], passes[0]),
           user.confirmSession(sessions[1], passes[1])
         ]);
@@ -393,7 +393,7 @@ describe('User Model', function() {
   });
 
   it('should verify the email', function() {
-    var emitterPromise = new BPromise(function(resolve) {
+    var emitterPromise = new Promise(function(resolve) {
       emitter.once('email-verified', function(user) {
         expect(user._id).to.equal('superuser');
         resolve();
@@ -401,7 +401,7 @@ describe('User Model', function() {
     });
 
     return previous.then(function() {
-      // console.log('Verifying email with token');
+      console.log('Verifying email with token');
       return user.verifyEmail(verifyEmailToken);
     })
       .then(function() {
@@ -418,7 +418,7 @@ describe('User Model', function() {
   var resetTokenHashed;
 
   it('should generate a password reset token', function() {
-    var emitterPromise = new BPromise(function(resolve) {
+    var emitterPromise = new Promise(function(resolve) {
       emitter.once('forgot-password', function(user) {
         expect(user._id).to.equal('superuser');
         resolve();
@@ -428,7 +428,7 @@ describe('User Model', function() {
     var spySendMail = sinon.spy(mailer, "sendEmail");
 
     return previous.then(function() {
-      // console.log('Generating password reset token');
+      console.log('Generating password reset token');
       return user.forgotPassword(testUserForm.email, req);
     })
       .then(function() {
@@ -456,7 +456,7 @@ describe('User Model', function() {
   });
 
   it('should not reset the password', function() {
-      var emitterPromise = new BPromise(function(resolve) {
+      var emitterPromise = new Promise(function(resolve) {
         emitter.once('email-changed', function(user) {
           expect(user._id).to.equal('superuser');
           resolve();
@@ -464,7 +464,7 @@ describe('User Model', function() {
       });
 
       return previous.then(function () {
-        // console.log('Resetting the password');
+        console.log('Resetting the password');
         var form = {
           token: resetToken,
           password: 'secret',
@@ -485,7 +485,7 @@ describe('User Model', function() {
   });
 
   it('should reset the password', function() {
-    var emitterPromise = new BPromise(function (resolve) {
+    var emitterPromise = new Promise(function (resolve) {
       emitter.once('password-reset', function (user) {
         expect(user._id).to.equal('superuser');
         resolve();
@@ -493,7 +493,7 @@ describe('User Model', function() {
     });
 
     return previous.then(function () {
-      // console.log('Resetting the password');
+      console.log('Resetting the password');
       var form = {
         token: resetToken,
         password: 'newSecret',
@@ -518,7 +518,7 @@ describe('User Model', function() {
   });
 
   it('should change the password', function() {
-    var emitterPromise = new BPromise(function(resolve) {
+    var emitterPromise = new Promise(function(resolve) {
       emitter.once('password-change', function(user) {
         expect(user._id).to.equal('superuser');
         resolve();
@@ -526,7 +526,7 @@ describe('User Model', function() {
     });
 
     return previous.then(function() {
-      // console.log('Changing the password');
+      console.log('Changing the password');
       var form = {
         currentPassword: 'newSecret',
         newPassword: 'superpassword2',
@@ -547,7 +547,7 @@ describe('User Model', function() {
   });
 
   it('should change the email', function() {
-    var emitterPromise = new BPromise(function(resolve) {
+    var emitterPromise = new Promise(function(resolve) {
       emitter.once('email-changed', function(user) {
         expect(user._id).to.equal('superuser');
         resolve();
@@ -555,7 +555,7 @@ describe('User Model', function() {
     });
 
     return previous.then(function() {
-      // console.log('Changing the email');
+      console.log('Changing the email');
       return user.changeEmail(testUserForm.username, 'superuser2@example.com', req);
     })
       .then(function() {
@@ -569,7 +569,7 @@ describe('User Model', function() {
   });
 
   it('should create a new account from facebook auth', function() {
-    var emitterPromise = new BPromise(function(resolve) {
+    var emitterPromise = new Promise(function(resolve) {
       emitter.once('signup', function(user) {
         expect(user._id).to.equal('misterx');
         resolve();
@@ -584,7 +584,7 @@ describe('User Model', function() {
     };
 
     return previous.then(function() {
-      // console.log('Authenticating new facebook user');
+      console.log('Authenticating new facebook user');
       return user.socialAuth('facebook', auth, profile, req);
     })
       .then(function() {
@@ -610,7 +610,7 @@ describe('User Model', function() {
     };
 
     return previous.then(function() {
-      // console.log('Authenticating existing facebook user');
+      console.log('Authenticating existing facebook user');
       return user.socialAuth('facebook', auth, profile, req);
     })
       .then(function() {
@@ -630,7 +630,7 @@ describe('User Model', function() {
     };
 
     return previous.then(function() {
-      // console.log('Making sure an existing email is rejected');
+      console.log('Making sure an existing email is rejected');
       return user.socialAuth('facebook', auth, profile, req);
     })
       .then(function() {
@@ -655,8 +655,7 @@ describe('User Model', function() {
 
     return previous
       .then(function() {
-        // console.log('Generating username after conflict');
-        userDB.bulkDocs(docs);
+        return userDB.bulkDocs(docs);
       })
       .then(function() {
         return user.socialAuth('facebook', auth, profile, req);
@@ -676,7 +675,7 @@ describe('User Model', function() {
 
     return previous
       .then(function() {
-        // console.log('Linking social profile to existing user');
+        console.log('Linking social profile to existing user');
         return user.linkSocial('superuser', 'facebook', auth, profile, {});
       })
       .then(function(theUser) {
@@ -691,7 +690,7 @@ describe('User Model', function() {
   it('should unlink a social profile', function() {
     return previous
       .then(function() {
-        // console.log('Unlinking a social profile');
+        console.log('Unlinking a social profile');
         return user.unlink('superuser', 'facebook');
       })
       .then(function(theUser) {
@@ -720,7 +719,7 @@ describe('User Model', function() {
 
     return previous
       .then(function() {
-        // console.log('Cleaning expired sessions');
+        console.log('Cleaning expired sessions');
         return user.logoutUserSessions(testUser, 'expired');
       })
       .then(function(finalDoc) {
@@ -742,7 +741,7 @@ describe('User Model', function() {
 
     return previous
       .then(function() {
-        // console.log('Logging out of other sessions');
+        console.log('Logging out of other sessions');
         return userDB.put(testUser);
       })
       .then(function() {
@@ -760,7 +759,7 @@ describe('User Model', function() {
   it('should add a new user database', function() {
     return previous
       .then(function() {
-        // console.log('Adding a new user database');
+        console.log('Adding a new user database');
         return user.addUserDB('superuser', 'test_superdb', 'shared');
       })
       .then(function() {
@@ -778,7 +777,7 @@ describe('User Model', function() {
   it('should remove a user database', function() {
     return previous
       .then(function() {
-        // console.log('Removing a user database');
+        console.log('Removing a user database');
         return user.removeUserDB('superuser', 'test_superdb', false, true);
       })
       .then(function() {
@@ -796,7 +795,7 @@ describe('User Model', function() {
   it('should delete a user and all databases', function() {
     return previous
       .then(function() {
-        // console.log('Deleting user');
+        console.log('Deleting user');
         return checkDBExists('test_usertest$superuser');
       })
       .then(function(result) {
@@ -851,18 +850,16 @@ describe('User Model', function() {
 
   function checkDBExists(dbname) {
     var finalUrl = dbUrl + '/' + dbname;
-    return BPromise.fromCallback(function(callback) {
-      request.get(finalUrl)
-        .end(callback);
-    })
-      .then(function(res) {
+    return request.get(finalUrl)
+      .then(res => {
         var result = JSON.parse(res.text);
         if(result.db_name) {
-          return BPromise.resolve(true);
+          return Promise.resolve(true);
         }
-      }, function(err) {
+      })
+      .catch(err => {
         if(err.status === 404) {
-          return BPromise.resolve(false);
+          return Promise.resolve(false);
         }
       });
   }

@@ -50,7 +50,7 @@ function runTest(config, adapter) {
   var session = new Session(config);
   var previous;
 
-  return new BPromise(function(resolve, reject) {
+  return new Promise(function(resolve, reject) {
 
     describe(adapter, function() {
 
@@ -60,7 +60,7 @@ function runTest(config, adapter) {
             return session.confirmToken(testToken.key, testToken.password);
           })
           .then(function(result) {
-            // console.log('stored token');
+            console.log('stored token');
             expect(result.key).to.equal(testToken.key);
             done();
           })
@@ -73,7 +73,7 @@ function runTest(config, adapter) {
         previous.then(function() {
           return session.confirmToken(testToken.key, testToken.password)
             .then(function(result) {
-              // console.log('confirmed token');
+              console.log('confirmed token');
               expect(result._id).to.equal('colinskow');
               done();
             })
@@ -87,7 +87,7 @@ function runTest(config, adapter) {
         previous.then(function() {
           return session.confirmToken('faketoken', testToken.password)
             .catch(function (err) {
-              // console.log('rejected invalid token');
+              console.log('rejected invalid token');
               expect(err).to.equal('invalid token');
               done();
             });
@@ -98,7 +98,7 @@ function runTest(config, adapter) {
         previous.then(function() {
           return session.confirmToken(testToken.key, 'wrongpass')
             .catch(function (err) {
-              // console.log('rejected invalid token');
+              console.log('rejected invalid token');
               expect(err).to.equal('invalid token');
               done();
             });
@@ -116,7 +116,7 @@ function runTest(config, adapter) {
               throw new Error('failed to delete token');
             })
             .catch(function(err) {
-              // console.log('deleted token');
+              console.log('deleted token');
               expect(err).to.equal('invalid token');
               session.quit();
               done();

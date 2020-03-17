@@ -1,9 +1,12 @@
 ## Change Log
 
-#### Fork 2018-02-28 PhilLaFayette
-* Updated Dependencies
-* Added test-env.sh, with support for arbitrary REDIS_HOST and REDIS_PASSWORD
-* Fixed Design Doc format for pouchdb-seed-design@0.3.0
+#### Updates and Adjustments: SuperloginX (0.7.1)
+* Removal of Bluebird in favour of native Promises
+* Adjustment of Travis CI for NodeJS 10 with ES6
+* Updating all packages to more secure versions
+* not allowing `_` as prefix for userDBs
+* Updated E-Mail Regex
+* Added two custom options to config (shorter PW-reset token, sending UUID with session info)
 
 #### Misc. Bug Fixes (0.6.1) 2016-04-02
 * Misc bugfixes

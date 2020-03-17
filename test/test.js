@@ -6,8 +6,8 @@ var sinon = require('sinon');
 var expect= chai.expect;
 chai.use(require('sinon-chai'));
 
-var BPromise = require('bluebird');
-global.Promise = BPromise;
+var Promise = require('bluebird');
+global.Promise = Promise;
 var PouchDB = require('pouchdb');
 var seed = require('pouchdb-seed-design');
 var util = require('../lib/util.js');
@@ -49,7 +49,7 @@ describe('SuperLogin', function() {
     app = require('./test-server')(config);
     app.superlogin.onCreate(function(userDoc, provider) {
       userDoc.profile = {name: userDoc.name};
-      return BPromise.resolve(userDoc);
+      return Promise.resolve(userDoc);
     });
 
     previous = seed(userDB, require('../designDocs/user-design'));
@@ -59,28 +59,25 @@ describe('SuperLogin', function() {
   after(function() {
     return previous
       .then(function() {
-        return BPromise.all([userDB.destroy(), keysDB.destroy()]);
+        return Promise.all([userDB.destroy(), keysDB.destroy()]);
       })
       .then(function() {
-        // console.log('DBs Destroyed');
+        console.log('DBs Destroyed');
         app.shutdown();
       });
   });
 
   it('should create a new user', function() {
-    return previous.then(function() {
-      return new BPromise(function(resolve, reject) {
-        request
+    return previous.then(() => {
+      return request
           .post(server + '/auth/register')
           .send(newUser)
-          .end(function(err, res) {
-            if (err) return reject(err);
+          .then(res => {
             expect(res.status).to.equal(201);
             expect(res.body.success).to.equal('User created.');
-            // console.log('User created');
-            resolve();
-          });
-      });
+            console.log('User created');
+            return Promise.resolve();
+        });
     });
   });
 
@@ -93,51 +90,44 @@ describe('SuperLogin', function() {
           return 1;
         })
         .then(function() {
-          return new BPromise(function(resolve, reject) {
-            request
+          return request
               .get(server + '/auth/confirm-email/' + emailToken)
-              .end(function(err, res) {
-                if (err) return reject(err);
+              .then( res => {
                 expect(res.status).to.equal(200);
-                // console.log('Email successfully verified.');
-                resolve();
+                console.log('Email successfully verified.');
+                return Promise.resolve();
               });
           });
         });
-    });
   });
 
   it('should login the user', function() {
     return previous.then(function() {
-      return new BPromise(function(resolve, reject) {
-        request
-          .post(server + '/auth/login')
-          .send({ username: newUser.username, password: newUser.password })
-          .end(function(err, res) {
-            if (err) return reject(err);
-            accessToken = res.body.token;
-            accessPass = res.body.password;
-            expect(res.status).to.equal(200);
-            expect(res.body.roles[0]).to.equal('user');
-            expect(res.body.token.length).to.be.above(10);
-            expect(res.body.profile.name).to.equal(newUser.name);
-            // console.log('User successfully logged in');
-            resolve();
-          });
-      });
+      return request
+        .post(server + '/auth/login')
+        .send({ username: newUser.username, password: newUser.password })
+        .then( res => {
+          accessToken = res.body.token;
+          accessPass = res.body.password;
+          expect(res.status).to.equal(200);
+          expect(res.body.roles[0]).to.equal('user');
+          expect(res.body.token.length).to.be.above(10);
+          expect(res.body.profile.name).to.equal(newUser.name);
+          console.log('User successfully logged in');
+          return Promise.resolve();
+        });
     });
   });
 
   it('should access a protected endpoint', function() {
     return previous.then(function() {
-      return new BPromise(function(resolve, reject) {
+      return new Promise(function(resolve, reject) {
         request
           .get(server + '/auth/session')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
-          .end(function(err, res) {
-            if (err) return reject(err);
+          .then( res => {
             expect(res.status).to.equal(200);
-            // console.log('Secure endpoint successfully accessed.');
+            console.log('Secure endpoint successfully accessed.');
             resolve();
           });
       });
@@ -146,14 +136,13 @@ describe('SuperLogin', function() {
 
   it('should require a role', function() {
     return previous.then(function() {
-      return new BPromise(function(resolve, reject) {
+      return new Promise(function(resolve, reject) {
         request
           .get(server + '/user')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
-          .end(function(err, res) {
-            if (err) return reject(err);
+          .then( res => {
             expect(res.status).to.equal(200);
-            // console.log('Role successfully required.');
+            console.log('Role successfully required.');
             resolve();
           });
       });
@@ -162,14 +151,15 @@ describe('SuperLogin', function() {
 
   it('should deny access when a required role is not present', function() {
     return previous.then(function() {
-      return new BPromise(function(resolve, reject) {
+      return new Promise(function(resolve, reject) {
         request
           .get(server + '/admin')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
-          .end(function(err, res) {
-            //if (err) return reject(err);
-            expect(res.status).to.equal(403);
-            // console.log('Admin access successfully denied.');
+          .then(() => {
+            reject('Admin access should have been rejected!');
+          }).catch( err => {
+            expect(err.status).to.equal(403);
+            console.log('Admin access successfully denied.');
             resolve();
           });
       });
@@ -180,17 +170,16 @@ describe('SuperLogin', function() {
     var spySendMail = sinon.spy(app.superlogin.mailer, "sendEmail");
 
     return previous.then(function() {
-      return new BPromise(function(resolve, reject) {
+      return new Promise(function(resolve, reject) {
         request
           .post(server + '/auth/forgot-password')
           .send({email: newUser.email})
-          .end(function(err, res) {
-            if (err) return reject(err);
+          .then(res => {
             expect(res.status).to.equal(200);
             // keep unhashed token emailed to user.
             var sendEmailArgs = spySendMail.getCall(0).args;
             resetToken = sendEmailArgs[2].token;
-            // console.log('Password token successfully generated.');
+            console.log('Password token successfully generated.');
             resolve();
           });
       });
@@ -200,17 +189,14 @@ describe('SuperLogin', function() {
   it('should reset the password', function() {
     return previous.then(function() {
       return userDB.get(newUser.username)
-        .then(function(resetUser) {
-          return new BPromise(function(resolve, reject) {
+        .then(() => {
+          return new Promise(function(resolve, reject) {
             request
               .post(server + '/auth/password-reset')
               .send({token: resetToken, password: 'newpass', confirmPassword: 'newpass'})
-              .end(function(error, res) {
-                if(error || res.status !== 200) {
-                  throw new Error('Failed to reset the password.');
-                }
+              .then(res => {
                 expect(res.status).to.equal(200);
-                // console.log('Password successfully reset.');
+                console.log('Password successfully reset.');
                 resolve();
               });
           });
@@ -220,14 +206,16 @@ describe('SuperLogin', function() {
 
   it('should logout the user upon password reset', function() {
     return previous.then(function() {
-      return new BPromise(function(resolve, reject) {
+      return new Promise(function(resolve, reject) {
         request
           .get(server + '/auth/session')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
-          .end(function(err, res) {
-            //if (err) return reject(err);
-            expect(res.status).to.equal(401);
-            // console.log('User has been successfully logged out on password reset.');
+          .then(() => {
+            reject('User should have been logged out!');
+          })
+          .catch(err => {
+            expect(err.status).to.equal(401);
+            console.log('User has been successfully logged out on password reset.');
             resolve();
           });
       });
@@ -236,20 +224,22 @@ describe('SuperLogin', function() {
 
   it('should login with the new password', function() {
     return previous.then(function() {
-      return new BPromise(function(resolve, reject) {
+      return new Promise(function(resolve, reject) {
         request
           .post(server + '/auth/login')
           .send({ username: newUser.username, password: 'newpass' })
-          .end(function(err, res) {
-            if (err) return reject('Failed to log in. ' + err);
+          .then(res => {
             accessToken = res.body.token;
             accessPass = res.body.password;
             expireCompare = res.body.expires;
             expect(res.status).to.equal(200);
             expect(res.body.roles[0]).to.equal('user');
             expect(res.body.token.length).to.be.above(10);
-            // console.log('User successfully logged in with new password');
+            console.log('User successfully logged in with new password');
             resolve();
+          })
+          .catch(err => {
+            return reject('Failed to log in. ' + err);
           });
       });
     });
@@ -257,15 +247,14 @@ describe('SuperLogin', function() {
 
   it('should refresh the session', function() {
     return previous.then(function() {
-      return new BPromise(function(resolve, reject) {
+      return new Promise(function(resolve, reject) {
         request
           .post(server + '/auth/refresh')
           .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
-          .end(function(err, res) {
-            if (err) return reject(err);
+          .then(res => {
             expect(res.status).to.equal(200);
             expect(res.body.expires).to.be.above(expireCompare);
-            // console.log('Session successfully refreshed.');
+            console.log('Session successfully refreshed.');
             resolve();
           });
       });
@@ -276,17 +265,14 @@ describe('SuperLogin', function() {
     return previous.then(function() {
       return userDB.get(newUser.username)
         .then(function(resetUser) {
-          return new BPromise(function(resolve, reject) {
+          return new Promise(function(resolve, reject) {
             request
               .post(server + '/auth/password-change')
               .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
               .send({currentPassword: 'newpass', newPassword: 'newpass2', confirmPassword: 'newpass2'})
-              .end(function(error, res) {
-                if(error || res.status !== 200) {
-                  throw new Error('Failed to change the password.');
-                }
+              .then(res => {
                 expect(res.status).to.equal(200);
-                // console.log('Password successfully changed.');
+                console.log('Password successfully changed.');
                 resolve();
               });
           });
@@ -297,7 +283,7 @@ describe('SuperLogin', function() {
   it('should logout the user', function() {
     return previous
       .then(function() {
-        return new BPromise(function(resolve, reject) {
+        return new Promise(function(resolve, reject) {
           request
             .post(server + '/auth/logout')
             .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
@@ -310,13 +296,13 @@ describe('SuperLogin', function() {
             });
       })
         .then(function() {
-          return new BPromise(function(resolve, reject) {
+          return new Promise(function(resolve, reject) {
             request
               .get(server + '/auth/session')
               .set('Authorization', 'Bearer ' + accessToken + ':' + accessPass)
               .end(function(error, res) {
                 expect(res.status).to.equal(401);
-                // console.log('User has been successfully logged out.');
+                console.log('User has been successfully logged out.');
                 resolve();
               });
           });
@@ -327,7 +313,7 @@ describe('SuperLogin', function() {
   it('should login after creating a new user', function() {
     return previous.then(function() {
       app.config.setItem('security.loginOnRegistration', true);
-      return new BPromise(function(resolve, reject) {
+      return new Promise(function(resolve, reject) {
         request
           .post(server + '/auth/register')
           .send(newUser2)
@@ -336,7 +322,7 @@ describe('SuperLogin', function() {
             /* jshint -W030 */
             expect(res.body.token).to.be.a.string;
             /* jshint +W030 */
-            // console.log('User created and logged in');
+            console.log('User created and logged in');
             resolve();
           });
       });
@@ -346,7 +332,7 @@ describe('SuperLogin', function() {
   it('should validate a username', function() {
     return previous
       .then(function() {
-        return new BPromise(function(resolve, reject) {
+        return new Promise(function(resolve, reject) {
           request
             .get(server + '/auth/validate-username/idontexist')
             .end(function(error, res) {
@@ -357,12 +343,12 @@ describe('SuperLogin', function() {
         });
       })
       .then(function() {
-        return new BPromise(function(resolve, reject) {
+        return new Promise(function(resolve, reject) {
           request
             .get(server + '/auth/validate-username/kewluzer')
             .end(function(error, res) {
               expect(res.status).to.equal(409);
-              // console.log('Validate Username is working');
+              console.log('Validate Username is working');
               resolve();
             });
         });
@@ -372,7 +358,7 @@ describe('SuperLogin', function() {
   it('should validate an email', function() {
     return previous
       .then(function() {
-        return new BPromise(function(resolve, reject) {
+        return new Promise(function(resolve, reject) {
           request
             .get(server + '/auth/validate-email/nobody@example.com')
             .end(function(error, res) {
@@ -383,12 +369,12 @@ describe('SuperLogin', function() {
         });
       })
       .then(function() {
-        return new BPromise(function(resolve, reject) {
+        return new Promise(function(resolve, reject) {
           request
             .get(server + '/auth/validate-username/kewluzer@example.com')
             .end(function(error, res) {
               expect(res.status).to.equal(409);
-              // console.log('Validate Email is working');
+              console.log('Validate Email is working');
               resolve();
             });
         });
@@ -396,7 +382,7 @@ describe('SuperLogin', function() {
   });
 
   function attemptLogin(username, password) {
-    return new BPromise(function(resolve, reject) {
+    return new Promise(function(resolve, reject) {
       request
         .post(server + '/auth/login')
         .send({ username: username, password: password })
@@ -446,7 +432,7 @@ describe('SuperLogin', function() {
       .then(function(result) {
         expect(result.status).to.equal(401);
         expect(result.message.search('Your account is currently locked')).to.equal(0);
-        return BPromise.resolve();
+        return Promise.resolve();
       });
   });
 
